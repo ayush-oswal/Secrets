@@ -8,20 +8,36 @@ cookies and sessions : cookies store the interaction data such as password and u
 he dosent have to login everytime he visits the page. Session is the time between login and logout, the user credentials
 are stored in cookies until the user logs out of the website, it is useful because even if the server restarts, until 
 the user logs out, his info will be stored in cookies.
+to levelup our authentication, we install passport, passport-local, passport-local-mongoose, express-session
+we dont need to require passport local as it is a dependency for passport-local-mongoose
+passport local mongoose automatically hashes and salts passwords when we plugin it into our db
+serialize and deserialize are only necessary if we are using sessions
+passport js comes with really usefull methods such as authenticate, isAuthenticated(), login, logout, register, etc
 */
 const express = require('express')
 const bodyParser = require('body-parser')
 const ejs = require('ejs')
 const mongoose = require('mongoose')
-//const encrypt = require('mongoose-encryption')
-//const md5 = require('md5')
-const bcrypt = require('bcrypt')
-const saltRounds = 10;
+const session = require('express-session')
+const passport = require('passport')
+const passportLocalMongoose = require('passport-local-mongoose')
 require("dotenv").config()
 const app = express()
 app.use(express.static("public"))
 app.use(bodyParser.urlencoded({extended:"true"}));
 app.set("view engine","ejs")
+
+
+
+app.use(session({
+    secret: process.env.SOME_LONG_UNGUESSABLE_STRING,
+    resave: false,
+    saveUninitialized: false,
+  }))
+  app.use(passport.initialize());
+  app.use(passport.session());
+
+
 
 mongoose.connect(process.env.DATABASE_URL,{ useNewUrlParser: true, useUnifiedTopology: true })
 .then(()=>{
@@ -29,24 +45,22 @@ mongoose.connect(process.env.DATABASE_URL,{ useNewUrlParser: true, useUnifiedTop
 })
 .catch(err=>{console.log(err)})
 
+//mongoose.set("useCreateIndex",true)
+
 const userSchema = new mongoose.Schema ({
     email:String,
     password:String
 })
 
 
-//the values in the encryptedFeilds array are the data fields that need to be encrypted, refer to doc for more ways of defining it
-// var secret = process.env.SOME_LONG_UNGUESSABLE_STRING;
-// userSchema.plugin(encrypt, { secret: secret , encryptedFields:["password"] });
+userSchema.plugin(passportLocalMongoose)
 
 const User = mongoose.model("users",userSchema)
 
-// const user1 = new User({
-//     email:"test1",
-//     password:"test2"
-// })
+passport.use(User.createStrategy());
 
-// user1.save()
+passport.serializeUser(User.serializeUser());
+passport.deserializeUser(User.deserializeUser());
 
 
 app.get("/",(req,res)=>{
@@ -61,42 +75,57 @@ app.get("/register",(req,res)=>{
     res.render("register")
 });
 
-app.post("/register",(req,res)=>{
+app.get("/secrets",(req,res)=>{
+    if(req.isAuthenticated()){
+        res.render("secrets")
+    }
+    else{
+        res.redirect("/login")
+    }
+});
 
-    bcrypt.hash(req.body.password,saltRounds,(err,hash)=>{
-        const newUser = new User({
-            email:req.body.username,
-            password:hash
-        });
-        newUser.save()
-        .then(()=>res.render("secrets"))
-        .catch(err=>{console.log(err)})
+app.get("/logout",(req,res)=>{
+    req.logout(function(err){
+        if(!err){
+            res.redirect("/");
+        }
+        else{
+            console.log(err)
+        }
     });
-    // ---------USING MD5----------
-    // const newUser = new User({
-    //     email:req.body.username,
-    //     password:md5(req.body.password)
-    // });
-    // newUser.save()
-    // .then(()=>res.render("secrets"))
-    // .catch(err=>{console.log(err)})
+    
+}); 
+
+
+app.post("/register",(req,res)=>{
+    User.register({username:req.body.username},req.body.password)
+    .then((user)=>{
+        passport.authenticate("local")(req,res,function(){
+            res.redirect("/secrets")
+        })
+    })
+    .catch(err=>{
+        console.log(err)
+        res.redirect("/register")
+    })
 });
 
 
 app.post("/login",(req,res)=>{
-    const username = req.body.username;
-    const password = req.body.password;
-    User.findOne({email:username})
-    .then((founduser)=>{
-        if(founduser){
-            bcrypt.compare(password,founduser.password,(err,result)=>{
-                if(result===true){
-                    res.render("secrets")
-                }
-            });
-        }
+    const user = new User({
+        username:req.body.username,
+        password:req.body.password
     })
-    .catch(err=>{console.log(err)})
+    req.login(user,function(err){
+        if(!err){
+            passport.authenticate("local")(req,res,function(){
+                res.redirect("/secrets")
+            })
+        }
+        else{
+            console.log(err)
+        }
+    });
 });
 
 
