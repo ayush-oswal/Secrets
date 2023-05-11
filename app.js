@@ -1,24 +1,4 @@
-/*jshint esversion:6
-hashing is another way of making our website and user info secure, functions like md5 help us achieve it. => md5(password)--> returns hashed password
-salting is the process of adding random chars at the end of hash password and use bcrypt>>md5
-saltrounds specify the number of times salting is done to our hash password.
-bcrypt.hash function takes plain password & saltrounds and returns a hash password.
-to handle login, we use bcrypt.compare method.
-cookies and sessions : cookies store the interaction data such as password and username of the user so that
-he dosent have to login everytime he visits the page. Session is the time between login and logout, the user credentials
-are stored in cookies until the user logs out of the website, it is useful because even if the server restarts, until 
-the user logs out, his info will be stored in cookies.
-to levelup our authentication, we install passport, passport-local, passport-local-mongoose, express-session
-we dont need to require passport local as it is a dependency for passport-local-mongoose
-passport local mongoose automatically hashes and salts passwords when we plugin it into our db
-serialize and deserialize are only necessary if we are using sessions
-passport js comes with really usefull methods such as authenticate, isAuthenticated(), login, logout, register, etc
-Next level of authentication is Oauth 2.0, we can authenticate users by using their google profile.
-we recieve an access token which can be saved in our db. first npm i passport-google-oauth20 then go to googles developer
-console and create an application. Then we create credentials such as client id and client secrets.
-findOrCreate is not a mongoose method, its an option we can either implement it manually using findOne and Create
-or we can install findOrCreate pakage
-*/
+
 const express = require('express')
 const bodyParser = require('body-parser')
 const ejs = require('ejs')
@@ -58,7 +38,9 @@ const userSchema = new mongoose.Schema ({
     email:String,
     password:String,
     googleId:String,
-    secret:String
+    secrets: [{
+        type: String
+      }]
 })
 
 
@@ -114,9 +96,9 @@ app.get("/register",(req,res)=>{
 });
 
 app.get("/secrets",(req,res)=>{
-    User.find({"secret":{$ne:null}})
+    User.find({"secrets":{$ne:null}})
     .then((foundusers)=>{
-        res.render("secrets",{secrets:foundusers})
+        res.render("secrets",{Secrets:foundusers})
     })
     .catch(err=>{console.log(err)})
 });
@@ -191,7 +173,7 @@ app.post("/submit",(req,res)=>{
     console.log(req.user.id)
     User.findById(req.user.id)
     .then((founduser)=>{
-        founduser.secret = secret
+        founduser.secrets.push(secret)
         founduser.save()
         res.redirect("/secrets")
     })
