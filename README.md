@@ -21,7 +21,8 @@ Whisper Secrets is a web application that allows users to submit their secrets a
 - MongoDB Atlas (NoSQL database)
 
 
-Acknowledgments
+Acknowledgments :
+
 This project was developed as part of a learning experience to gain hands-on knowledge of various authentication methods and web development technologies. Special thanks to the following resources:
 
 Passport.js Documentation
